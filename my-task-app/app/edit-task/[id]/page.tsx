@@ -1,9 +1,15 @@
-// app/edit-task/[id]/page.tsx
 "use client";
-import { FormEvent } from "react";
 import { useRouter, useParams } from "next/navigation";
 import toDoService from "../../shared/services/toDoService";
 import { Task } from "@/app/models/interfaces";
+import { useForm, SubmitHandler } from "react-hook-form";
+
+type FormInputs = {
+  title: Task["title"];
+  description: Task["description"];
+  type: Task["type"];
+  status: Task["status"];
+};
 
 export default function EditTaskPage() {
   const router = useRouter();
@@ -13,27 +19,32 @@ export default function EditTaskPage() {
   const allTasks = toDoService.getAllToDos();
   const currentTask = allTasks.find((task) => task.id === taskId);
 
-  const Submit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-
-    const title = formData.get("title") as Task["title"];
-    const description = formData.get("description") as Task["description"];
-    const type = formData.get("type") as Task["type"];
-    const status = formData.get("status") as Task["status"];
-
-    toDoService.updateTask(taskId, {
-      title,
-      description,
-      type,
-      status,
-    });
-    router.push("/");
-  };
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<FormInputs>({
+    defaultValues: {
+      title: currentTask?.title,
+      description: currentTask?.description,
+      type: currentTask?.type,
+      status: currentTask?.status,
+    },
+  });
 
   if (!currentTask) {
     return <div>Uzdevums netika atrasts!</div>;
   }
+
+  const onSubmit: SubmitHandler<FormInputs> = (data) => {
+    toDoService.updateTask(taskId, {
+      title: data.title,
+      description: data.description,
+      type: data.type,
+      status: data.status,
+    });
+    router.push("/");
+  };
 
   return (
     <div className="p-10">
@@ -41,49 +52,60 @@ export default function EditTaskPage() {
       <p>
         <strong>{taskId}</strong>
       </p>
-      <form onSubmit={Submit}>
-        <button>Back</button>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <button type="button" onClick={() => router.back()}>
+          Back
+        </button>
         <div>
-          <label htmlFor="title">Title</label>
+          <label>Title</label>
           <input
             type="text"
-            id="title"
-            name="title"
-            defaultValue={currentTask.title}
-            required
+            {...register("title", {
+              required: "Title is required",
+              minLength: { value: 3, message: "Must be at least 3 chars" },
+            })}
           />
-        </div>
-        <div>
-          <label htmlFor="description">Description</label>
-          <input
-            type="text"
-            id="description"
-            name="description"
-            defaultValue={currentTask.description}
-            required
-          />
-        </div>
-        <div>
-          <label htmlFor="type">Type</label>
-          <input
-            type="text"
-            id="type"
-            name="type"
-            defaultValue={currentTask.type}
-            required
-          />
+          {errors.title && (
+            <p className="text-red-500 text-sm mt-1">{errors.title.message}</p>
+          )}
         </div>
 
         <div>
-          <label htmlFor="status">Status</label>
-          <select name="status" id="status" defaultValue={currentTask.status}>
+          <label>Description</label>
+          <input
+            type="text"
+            {...register("description", {
+              required: "Description is required",
+            })}
+          />
+          {errors.description && (
+            <p className="text-red-500 text-sm mt-1">
+              {errors.description.message}
+            </p>
+          )}
+        </div>
+
+        <div>
+          <label>Type</label>
+          <input
+            type="text"
+            {...register("type", { required: "Type is required" })}
+          />
+          {errors.type && (
+            <p className="text-red-500 text-sm mt-1">{errors.type.message}</p>
+          )}
+        </div>
+
+        <div>
+          <label>Status</label>
+          <select {...register("status")}>
             <option value="todo">Todo</option>
             <option value="in-progress">In Progress</option>
             <option value="done">Done</option>
           </select>
         </div>
 
-        <button>Submit</button>
+        <button type="submit">Submit</button>
       </form>
     </div>
   );
